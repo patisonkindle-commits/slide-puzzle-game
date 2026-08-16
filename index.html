@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Slide Puzzle</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+  background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:15px;
+  overflow:hidden;touch-action:none;
+}
+body.dark-mode{
+  background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);
+}
+body.ocean-theme{background:linear-gradient(135deg,#0093E9 0%,#80D0C7 100%)}
+body.forest-theme{background:linear-gradient(135deg,#134E5E 0%,#71B280 100%)}
+body.sunset-theme{background:linear-gradient(135deg,#F51633 0%,#FEA507 100%)}
+.game-container{
+  background:rgba(255,255,255,0.95);border-radius:20px;
+  padding:20px;width:100%;max-width:520px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;
+  position:relative;
+}
+body.dark-mode .game-container{background:rgba(30,30,50,0.95);color:#e0e0e0}
+body.dark-mode h1,body.dark-mode .stat-value{color:#8fa4ff}
+body.dark-mode .stat-label,body.dark-mode .game-title{color:#a0a0b8}
+body.dark-mode .btn-secondary,body.dark-mode .game-btn-secondary{background:#444;color:#e0e0e0}
+body.dark-mode .game-btn-secondary:hover{background:#555}
+h1{color:#667eea;font-size:1.8em;margin-bottom:12px;text-shadow:2px 2px 4px rgba(0,0,0,0.1)}
+.game-title{font-size:0.9em;color:#888;margin-bottom:10px;font-weight:400}
+.stats{display:flex;justify-content:space-around;margin-bottom:15px;padding:10px;background:#f8f9fa;border-radius:10px}
+.stat{text-align:center}
+.stat-value{font-size:1.5em;font-weight:bold;color:#667eea}
+.stat-label{font-size:0.75em;color:#666;margin-top:2px}
+.timer-display{font-size:1.5em;font-weight:bold;color:#667eea;margin-bottom:10px}
+.grid-container{
+  position:relative;width:100%;max-width:440px;margin:10px auto;
+  aspect-ratio:1;background:#333;padding:6px;border-radius:10px;
+}
+.grid{display:grid;width:100%;height:100%;gap:4px;background:#333;padding:4px;border-radius:8px}
+.tile{
+  display:flex;align-items:center;justify-content:center;
+  font-weight:bold;color:#fff;border-radius:8px;cursor:pointer;
+  user-select:none;-webkit-user-select:none;
+  transition:transform 0.2s ease,box-shadow 0.2s ease;
+  box-shadow:0 3px 8px rgba(0,0,0,0.25);
+  position:relative;overflow:hidden;
+}
+.tile:hover:not(.empty){transform:scale(1.04);box-shadow:0 5px 15px rgba(0,0,0,0.35)}
+.tile:active:not(.empty){transform:scale(0.97)}
+.tile.empty{background:transparent;cursor:default;box-shadow:none}
+.tile.hint-highlight{animation:hintPulse 0.8s ease-in-out 2;z-index:10}
+.tile.flip-anim{animation:tileFlip 0.4s ease}
+@keyframes hintPulse{
+  0%,100%{box-shadow:0 3px 8px rgba(0,0,0,0.25)}
+  50%{box-shadow:0 0 0 4px rgba(255,215,0,0.8),0 0 20px rgba(255,215,0,0.5)}
+}
+@keyframes tileFlip{
+  0%{transform:scaleY(1)}
+  50%{transform:scaleY(0)}
+  100%{transform:scaleY(1)}
+}
+.controls{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+.game-btn{
+  padding:10px 14px;font-size:0.85em;border:none;border-radius:20px;
+  cursor:pointer;transition:all 0.3s ease;font-weight:600;
+  display:flex;align-items:center;gap:4px;
+}
+.btn-primary{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(102,126,234,0.4)}
+.btn-secondary{background:#f0f0f0;color:#333}
+.btn-secondary:hover{background:#e0e0e0}
+.game-btn-secondary{background:#ddd;color:#333}
+.game-btn-secondary:hover{background:#ccc}
+.message{
+  margin-top:15px;padding:12px;border-radius:10px;font-weight:600;
+  font-size:1em;display:none;animation:fadeIn 0.5s ease;
+}
+.message.win{display:block;background:linear-gradient(135deg,#11998e,#38ef7d);color:#fff;animation:winPulse 1s infinite}
+@keyframes winPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.modal-overlay{
+  display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;
+}
+.modal-overlay.show{display:flex}
+.modal{
+  background:#fff;border-radius:15px;padding:25px;max-width:400px;width:90%;
+  max-height:80vh;overflow-y:auto;text-align:center;
+  box-shadow:0 20px 60px rgba(0,0,0,0.3);
+}
+body.dark-mode .modal{background:#2a2a4a;color:#e0e0e0}
+.modal h2{color:#667eea;margin-bottom:15px;font-size:1.3em}
+.modal-close{
+  background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;
+  border:none;padding:10px 25px;border-radius:20px;cursor:pointer;
+  font-weight:600;margin-top:15px;font-size:1em;
+}
+.difficulty-selector{margin-bottom:10px}
+.difficulty-selector select{
+  padding:6px 12px;border-radius:15px;border:2px solid #667eea;
+  background:#fff;font-size:0.9em;cursor:pointer;
+}
+.stats-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;
+}
+.stat-card{background:#f8f9fa;padding:10px;border-radius:8px}
+body.dark-mode .stat-card{background:#3a3a5a}
+.stat-card .value{font-size:1.3em;font-weight:bold;color:#667eea}
+.stat-card .label{font-size:0.75em;color:#666;margin-top:2px}
+.leaderboard-list{text-align:left;margin:10px 0}
+.leaderboard-item{
+  display:flex;justify-content:space-between;padding:8px 0;
+  border-bottom:1px solid #eee;font-size:0.9em;
+}
+body.dark-mode .leaderboard-item{border-bottom-color:#4a4a6a}
+.leaderboard-item:first-child{color:#f39c12;font-weight:bold}
+.timer-modal{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:#fff;padding:20px;border-radius:12px;z-index:500;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,0.3)}
+body.dark-mode .timer-modal{background:#2a2a4a;color:#e0e0e0}
+.timer-modal.active{display:block}
+.timer-modal input{
+  width:80px;padding:8px;border:2px solid #667eea;border-radius:8px;
+  font-size:1.2em;text-align:center;margin:10px 0;
+}
+.timer-modal button{
+  padding:8px 20px;border:none;border-radius:15px;cursor:pointer;
+  font-weight:600;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;
+}
+.pause-overlay{
+  display:none;position:absolute;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.5);border-radius:20px;z-index:100;
+  align-items:center;justify-content:center;color:#fff;font-size:2em;font-weight:bold;
+}
+.pause-overlay.active{display:flex}
+.ads-banner{margin-top:15px;text-align:center;font-size:0.8em;color:#888}
+.ads-banner ins{display:block;margin:0 auto}
+#confetti-canvas{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:999}
+.achievement-toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  background:linear-gradient(135deg,#f39c12,#e67e22);color:#fff;
+  padding:12px 20px;border-radius:25px;font-weight:600;font-size:0.9em;
+  box-shadow:0 5px 20px rgba(0,0,0,0.3);z-index:1001;
+  animation:slideUp 0.3s ease;
+}
+@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.achievements-list{text-align:left;margin:10px 0}
+.achievement-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eee;font-size:0.9em}
+body.dark-mode .achievement-item{border-bottom-color:#4a4a6a}
+.achievement-item.unlocked .ach-icon{opacity:1}
+.ach-icon{font-size:1.5em;opacity:0.3}
+.ach-name{font-weight:600}
+.ach-desc{font-size:0.8em;color:#888}
+.fullscreen-btn{position:fixed;top:10px;right:10px;z-index:50;padding:8px 12px;font-size:1.2em}
+#game-area.fullscreen .game-container{border-radius:0;width:100%;max-width:100%}
+@media(max-width:400px){
+  .game-container{padding:12px}
+  h1{font-size:1.4em}
+  .stat-value{font-size:1.2em}
+  .game-btn{padding:8px 10px;font-size:0.78em}
+  .controls{gap:4px}
+}
+</style>
+</head>
+<body>
+<canvas id="confetti-canvas"></canvas>
+<button class="fullscreen-btn game-btn btn-secondary" id="fullscreenBtn" title="Fullscreen">⛶</button>
+<div id="game-area" class="game-container">
+  <h1>🧩 Slide Puzzle</h1>
+  <div class="game-title">Tap or drag tiles to slide~!</div>
+
+  <div class="difficulty-selector">
+    <select id="difficulty">
+      <option value="3">Easy (3×3)</option>
+      <option value="4">Medium (4×4)</option>
+      <option value="5">Hard (5×5)</option>
+    </select>
+  </div>
+
+  <div class="timer-display" id="timerDisplay">00:00</div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-value" id="moves">0</div><div class="stat-label">Moves</div></div>
+    <div class="stat"><div class="stat-value" id="bestDisplay">--:--</div><div class="stat-label">Best</div></div>
+    <div class="stat"><div class="stat-value" id="winsDisplay">0</div><div class="stat-label">Wins</div></div>
+  </div>
+
+  <div class="grid-container" id="gridContainer">
+    <div class="grid" id="grid"></div>
+    <div class="pause-overlay" id="pauseOverlay">⏸ PAUSED</div>
+    <div class="timer-modal" id="timerModal">
+      <div>Set Timer (seconds)</div>
+      <input type="number" id="timerInput" min="10" max="600" value="120">
+      <br>
+      <button id="timerConfirm">Start Timer</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="game-btn btn-primary" id="newGameBtn">🔄 New</button>
+    <button class="game-btn btn-secondary" id="undoBtn" title="Undo">↩ Undo</button>
+    <button class="game-btn btn-secondary" id="shuffleBtn">🔀 Shuffle</button>
+    <button class="game-btn btn-secondary" id="hintBtn" title="Hint">💡 Hint</button>
+    <button class="game-btn btn-secondary" id="pauseBtn" title="Pause">⏸</button>
+    <button class="game-btn btn-secondary" id="statsBtn" title="Stats">📊</button>
+    <button class="game-btn btn-secondary" id="achBtn" title="Achievements">🏅</button>
+  </div>
+
+  <div class="message" id="message">🎉 <b>WIN!</b> <br/><button class="game-btn btn-primary" id="playAgainBtn" style="margin-top:8px;font-size:1em;">🔄 Play Again</button></div>
+</div>
+
+<div class="modal-overlay" id="statsModal">
+  <div class="modal">
+    <h2>📊 Statistics</h2>
+    <div class="stats-grid" id="statsGrid"></div>
+    <h3 style="margin:10px 0 5px;color:#667eea">🏆 Leaderboard</h3>
+    <div class="leaderboard-list" id="leaderboardList"></div>
+    <button class="modal-close" id="statsClose">Close</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="achievementsModal">
+  <div class="modal">
+    <h2>🏅 Achievements</h2>
+    <div class="achievements-list" id="achievementsList"></div>
+    <button class="modal-close" id="achClose">Close</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════════════════════
+let board=[], emptyIndex=0, moves=0, timerInterval=null, startTime=null;
+let gameStarted=false, gridSize=3, isPaused=false;
+let moveHistory=[], lastMove=null, hintTimeout=null;
+let countdownTimer=null, countdownEnd=0;
+let hasWon=false, gamesPlayed=0;
+let dailyPuzzleDate=getDailyDate();
+
+// Load saved data
+let stats=JSON.parse(localStorage.getItem('slidePuzzleStats'))||{wins:0,bestTimes:{},gamesPlayed:0};
+let achievements=JSON.parse(localStorage.getItem('slidePuzzleAchievements'))||{firstWin:false,under60:false,under30:false,best3x3:0,best4x4:0,best5x5:0,streak5:false,streak10:false,noHints:false,totalWins:0};
+
+// ═══════════════════════════════════════════════════════════
+// DOM ELEMENTS
+// ═══════════════════════════════════════════════════════════
+const gridEl=document.getElementById('grid'),movesEl=document.getElementById('moves');
+const timerEl=document.getElementById('timerDisplay'),bestEl=document.getElementById('bestDisplay');
+const winsEl=document.getElementById('winsDisplay'),messageEl=document.getElementById('message');
+const difficultySelect=document.getElementById('difficulty');
+const newGameBtn=document.getElementById('newGameBtn'),undoBtn=document.getElementById('undoBtn');
+const shuffleBtn=document.getElementById('shuffleBtn'),hintBtn=document.getElementById('hintBtn');
+const pauseBtn=document.getElementById('pauseBtn'),statsBtn=document.getElementById('statsBtn');
+const statsModal=document.getElementById('statsModal'),achievementsModal=document.getElementById('achievementsModal');
+const statsClose=document.getElementById('statsClose'),achClose=document.getElementById('achClose');
+const pauseOverlay=document.getElementById('pauseOverlay'),timerModal=document.getElementById('timerModal');
+const timerInput=document.getElementById('timerInput'),timerConfirm=document.getElementById('timerConfirm');
+const confettiCanvas=document.getElementById('confetti-canvas');
+
+// ═══════════════════════════════════════════════════════════
+// SOUND ENGINE (Web Audio API)
+// ═══════════════════════════════════════════════════════════
+const AudioCtx=window.AudioContext||window.webkitAudioContext;
+let audioCtx=null;
+function ensureAudio(){if(!audioCtx)try{audioCtx=new AudioCtx()}catch(e){}}
+function playTone(freq,dur,type='sine',vol=0.15){
+  try{ensureAudio();const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+  o.type=type;o.frequency.value=freq;g.gain.value=vol;g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
+  o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}
+function playClick(){playTone(800,0.08,'sine',0.12)}
+function playShuffle(){playTone(400,0.1,'sine',0.08);setTimeout(()=>playTone(600,0.1,'sine',0.08),100)}
+function playWin(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>playTone(f,0.3,'sine',0.15),i*150))}
+function playWinFail(){playTone(300,0.3,'sawtooth',0.1);setTimeout(()=>playTone(250,0.4,'sawtooth',0.1),300)}
+function playHint(){playTone(1200,0.1,'sine',0.1)}
+
+// ═══════════════════════════════════════════════════════════
+// CONFETTI
+// ═══════════════════════════════════════════════════════════
+let confettiParticles=[],confettiActive=false,confettiAnim=null;
+function startConfetti(){
+  confettiParticles=[];confettiActive=true;
+  const ctx=confettiCanvas.getContext('2d');
+  confettiCanvas.width=window.innerWidth;confettiCanvas.height=window.innerHeight;
+  const colors=['#667eea','#764ba2','#f093fb','#f5576c','#4facfe','#43e97b','#fa709a','#30cfd0','#a8edea'];
+  for(let i=0;i<120;i++){
+    confettiParticles.push({
+      x:Math.random()*confettiCanvas.width,y:Math.random()*confettiCanvas.height-confettiCanvas.height,
+      w:Math.random()*10+5,h:Math.random()*6+3,
+      color:colors[Math.floor(Math.random()*colors.length)],
+      speed:Math.random()*3+2,angle:Math.random()*Math.PI*2,spin:(Math.random()-0.5)*0.1,
+      drift:(Math.random()-0.5)*2
+    });
+  }
+  function anim(){
+    if(!confettiActive){ctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);return}
+    ctx.clearRect(0,0,confettiCanvas.width,confettiCanvas.height);
+    confettiParticles.forEach(p=>{
+      p.y+=p.speed;p.x+=p.drift+Math.sin(p.angle)*0.5;p.angle+=p.spin;
+      if(p.y>confettiCanvas.height)p.y=-10;
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);
+      ctx.fillStyle=p.color;ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);ctx.restore();
+    });
+    confettiAnim=requestAnimationFrame(anim);
+  }
+  anim();
+  setTimeout(()=>{confettiActive=false;stopConfetti()},4000);
+}
+function stopConfetti(){confettiActive=false;if(confettiAnim)cancelAnimationFrame(confettiAnim)}
+window.addEventListener('resize',()=>{confettiCanvas.width=window.innerWidth;confettiCanvas.height=window.innerHeight});
+
+// ═══════════════════════════════════════════════════════════
+// DAILY PUZZLE
+// ═══════════════════════════════════════════════════════════
+function getDailyDate(){return new Date().toISOString().split('T')[0]}
+function dailySeed(){const d=getDailyDate();let h=0;for(let i=0;i<d.length;i++)h=((h<<5)-h)+d.charCodeAt(i);return Math.abs(h)}
+
+// ═══════════════════════════════════════════════════════════
+// THEME
+// ═══════════════════════════════════════════════════════════
+let themeIndex=parseInt(localStorage.getItem('slidePuzzleTheme'))||0;
+const themes=['','dark-mode','ocean-theme','forest-theme','sunset-theme'];
+function applyTheme(){document.body.className=themes[themeIndex]}
+function cycleTheme(){themeIndex=(themeIndex+1)%themes.length;localStorage.setItem('slidePuzzleTheme',themeIndex);applyTheme()}
+// Keyboard shortcut: T to cycle theme
+document.addEventListener('keydown',e=>{if(e.key==='t'||e.key==='T')cycleTheme()});
+
+// ═══════════════════════════════════════════════════════════
+// INITIALIZATION
+// ═══════════════════════════════════════════════════════════
+function startNewGame(){
+  gridSize=parseInt(difficultySelect.value);
+  board=[];for(let i=1;i<gridSize*gridSize;i++)board.push(i);board.push(0);
+  emptyIndex=board.indexOf(0);moves=0;gameStarted=false;hasWon=false;
+  moveHistory=[];lastMove=null;stopTimer();stopCountdown();
+  messageEl.classList.remove('win');messageEl.textContent='🎉 Congratulations! You won!';
+  isPaused=false;pauseOverlay.classList.remove('active');
+  movesEl.textContent='0';timerEl.textContent='00:00';
+  updateBestDisplay();shuffleBoard();
+  gamesPlayed++;stats.gamesPlayed=gamesPlayed;saveStats();
+}
+function init(){startNewGame()}
+
+// ═══════════════════════════════════════════════════════════
+// BOARD RENDERING
+// ═══════════════════════════════════════════════════════════
+function renderBoard(){
+  const size=gridSize;
+  gridEl.innerHTML='';gridEl.style.gridTemplateColumns=`repeat(${size},1fr)`;
+  gridEl.style.gridTemplateRows=`repeat(${size},1fr)`;
+  board.forEach((value,index)=>{
+    const tile=document.createElement('div');
+    tile.className=value===0?'tile empty':'tile';
+    tile.dataset.number=value;tile.dataset.index=index;
+    if(value!==0){
+      tile.textContent=value;
+      tile.style.background=getTileGradient(value);
+      tile.addEventListener('pointerdown',e=>handlePointerDown(e,index));
+    }
+    gridEl.appendChild(tile);
+  });
+}
+function getTileGradient(n){
+  const maps={
+    1:'linear-gradient(135deg,#667eea,#764ba2)',2:'linear-gradient(135deg,#f093fb,#f5576c)',
+    3:'linear-gradient(135deg,#4facfe,#00f2fe)',4:'linear-gradient(135deg,#43e97b,#38f9d7)',
+    5:'linear-gradient(135deg,#fa709a,#fee140)',6:'linear-gradient(135deg,#30cfd0,#330867)',
+    7:'linear-gradient(135deg,#a8edea,#fed6e3)',8:'linear-gradient(135deg,#ff9a9e,#fecfef)',
+    9:'linear-gradient(135deg,#a18cd1,#fbc2eb)',10:'linear-gradient(135deg,#fad0c4,#ffd1ff)',
+    11:'linear-gradient(135deg,#a1c4fd,#c2e9fb)',12:'linear-gradient(135deg,#d4fc79,#96e6a1)',
+    13:'linear-gradient(135deg,#ffecd2,#fcb69f)',14:'linear-gradient(135deg,#89f7fe,#66a6ff)',
+    15:'linear-gradient(135deg,#fddb92,#d1fdff)',16:'linear-gradient(135deg,#c1dfc4,#deecdd)',
+  };return maps[n]||'linear-gradient(135deg,#667eea,#764ba2)';
+}
+
+// ═══════════════════════════════════════════════════════════
+// POINTER / TOUCH HANDLING
+// ═══════════════════════════════════════════════════════════
+let pointerActive=false,pointerStartX=0,pointerStartY=0,pointerTileIdx=-1;
+function handlePointerDown(e,index){
+  if(hasWon||isPaused)return;
+  e.preventDefault();
+  // Check adjacency first for tap
+  if(isAdjacent(index,emptyIndex)){
+    startTimerIfNew();
+    const idx=index;
+    // Swap
+    const temp=board[idx];board[idx]=board[emptyIndex];board[emptyIndex]=temp;
+    emptyIndex=idx;moves++;moveHistory.push({from:emptyIndex,to:idx});lastMove={from:idx,to:emptyIndex};
+    playClick();updateStats();animateTileFlip(idx);renderBoard();
+    if(checkWin()) handleWin();
+  }
+}
+// For multi-tile slide: track pointer movement for direction
+function handlePointerMove(e){
+  if(!pointerActive||!pointerTileIdx>=0)return;
+  // Could detect swipe direction here for multi-step sliding
+}
+function handlePointerUp(e){
+  pointerActive=false;pointerTileIdx=-1;
+}
+document.addEventListener('pointermove',handlePointerMove);
+document.addEventListener('pointerup',handlePointerUp);
+
+// ═══════════════════════════════════════════════════════════
+// GAME LOGIC
+// ═══════════════════════════════════════════════════════════
+function handleTileClick(index){
+  if(hasWon||isPaused)return;
+  if(isAdjacent(index,emptyIndex)){
+    startTimerIfNew();
+    const idx=index;
+    const temp=board[idx];board[idx]=board[emptyIndex];board[emptyIndex]=temp;
+    emptyIndex=idx;moves++;moveHistory.push({from:emptyIndex,to:idx});lastMove={from:idx,to:emptyIndex};
+    playClick();updateStats();animateTileFlip(idx);renderBoard();
+    if(checkWin()) handleWin();
+  }
+}
+function isAdjacent(idx1,idx2){
+  const r1=Math.floor(idx1/gridSize),c1=idx1%gridSize;
+  const r2=Math.floor(idx2/gridSize),c2=idx2%gridSize;
+  return(Math.abs(r1-r2)===1&&c1===c2)||(Math.abs(c1-c2)===1&&r1===r2);
+}
+function checkWin(){
+  if(hasWon||isPaused)return false;
+  for(let i=0;i<board.length-1;i++){if(board[i]!==i+1)return false}
+  return board[board.length-1]===0;
+}
+function getNeighbors(index){
+  const row=Math.floor(index/gridSize),col=index%gridSize,neighbors=[];
+  if(row>0)neighbors.push(index-gridSize);
+  if(row<gridSize-1)neighbors.push(index+gridSize);
+  if(col>0)neighbors.push(index-1);
+  if(col<gridSize-1)neighbors.push(index+1);
+  return neighbors;
+}
+function isSolvable(b,size){
+  let inv=0;const nonZero=[];
+  for(let i=0;i<b.length;i++){if(b[i]!==0)nonZero.push(b[i])}
+  for(let i=0;i<nonZero.length;i++)for(let j=i+1;j<nonZero.length;j++)if(nonZero[i]>nonZero[j])inv++;
+  if(size%2===1)return inv%2===0;
+  else{const emptyRow=Math.floor(b.indexOf(0)/size);return(inv+emptyRow)%2===0}
+}
+
+// ═══════════════════════════════════════════════════════════
+// SHUFFLE
+// ═══════════════════════════════════════════════════════════
+function shuffleBoard(){
+  const seed=parseInt(localStorage.getItem('slidePuzzleShuffleSeed'))||dailySeed();
+  let rng=seed;function rand(){rng=(rng*1103515245+12345)&0x7fffffff;return rng/0x7fffffff}
+  const movesToMake=gridSize*gridSize*25;
+  moveHistory=[];
+  for(let i=0;i<movesToMake;i++){
+    const neighbors=getNeighbors(emptyIndex);
+    const rn=Math.floor(rand());
+    const neighborIdx=neighbors[rn%neighbors.length];
+    // Swap the neighbor tile with the empty tile
+    const temp=board[emptyIndex];board[emptyIndex]=board[neighborIdx];board[neighborIdx]=temp;
+    emptyIndex=neighborIdx; // empty is now at neighbor position
+  }
+  moves=0;gameStarted=false;stopTimer();stopCountdown();
+  messageEl.classList.remove('win');
+  updateStats();renderBoard();playShuffle();
+  localStorage.setItem('slidePuzzleShuffleSeed',(rng*7+1)%100000);
+}
+
+// ═══════════════════════════════════════════════════════════
+// UNDO
+// ═══════════════════════════════════════════════════════════
+function undoMove(){
+  if(moveHistory.length===0||hasWon)return;
+  const last=moveHistory.pop();
+  board[last.to]=board[last.from];board[last.from]=0;
+  emptyIndex=last.from;moves=Math.max(0,moves-1);lastMove=null;
+  playClick();updateStats();renderBoard();
+}
+
+// ═══════════════════════════════════════════════════════════
+// HINT
+// ═══════════════════════════════════════════════════════════
+function showHint(){
+  if(hasWon)return;
+  const neighbors=getNeighbors(emptyIndex);
+  const tile=gridEl.children[neighbors[Math.floor(Math.random()*neighbors.length)]];
+  if(tile){tile.classList.add('hint-highlight');
+    setTimeout(()=>tile.classList.remove('hint-highlight'),1600)}
+  playHint();
+}
+
+// ═══════════════════════════════════════════════════════════
+// PAUSE
+// ═══════════════════════════════════════════════════════════
+function togglePause(){
+  isPaused=!isPaused;pauseOverlay.classList.toggle('active',isPaused);
+}
+
+// ═══════════════════════════════════════════════════════════
+// TIMER
+// ═══════════════════════════════════════════════════════════
+function startTimerIfNew(){if(!gameStarted){gameStarted=true;startTime=Date.now();startTimer()}}
+function startTimer(){stopTimer();timerInterval=setInterval(()=>{
+  const elapsed=Math.floor((Date.now()-startTime)/1000);
+  const m=Math.floor(elapsed/60).toString().padStart(2,'0');
+  const s=(elapsed%60).toString().padStart(2,'0');timerEl.textContent=`${m}:${s}`;
+},1000)}
+function stopTimer(){clearInterval(timerInterval);timerInterval=null}
+function formatTime(seconds){const m=Math.floor(seconds/60).toString().padStart(2,'0');return`${m}:${(seconds%60).toString().padStart(2,'0')}`}
+function startCountdown(seconds){stopCountdown();countdownEnd=Date.now()+seconds*1000;
+  countdownTimer=setInterval(()=>{
+    const remaining=Math.max(0,Math.ceil((countdownEnd-Date.now())/1000));
+    timerEl.textContent=formatTime(remaining);
+    if(remaining<=10&&remaining>0)playTone(400,0.1,'sine',0.1);
+    if(remaining<=0){stopCountdown();playWinFail();
+      messageEl.textContent='⏰ Time\'s up!';messageEl.classList.add('win');hasWon=true;
+    }
+  },1000)}
+function stopCountdown(){clearInterval(countdownTimer);countdownTimer=null}
+
+// ═══════════════════════════════════════════════════════════
+// STATS & SAVE
+// ═══════════════════════════════════════════════════════════
+function updateStats(){movesEl.textContent=moves}
+function updateBestDisplay(){const key=gridSize+'x'+gridSize;
+  bestEl.textContent=stats.bestTimes[key]?formatTime(stats.bestTimes[key]):'--:--'}
+function saveStats(){localStorage.setItem('slidePuzzleStats',JSON.stringify(stats));saveAchievements()}
+function saveAchievements(){localStorage.setItem('slidePuzzleAchievements',JSON.stringify(achievements))}
+function checkAchievements(){
+  let newAchievements=[];
+  if(gamesPlayed>=1&&!achievements.firstWin){achievements.firstWin=true;newAchievements.push({name:'First Game',desc:'Complete your first puzzle'})}
+  const wonTime=parseInt(timerEl.textContent.replace(':',''))||0;
+  if(!achievements.under60&&wonTime<60){achievements.under60=true;newAchievements.push({name:'Speed Demon',desc:'Win in under 60 seconds'})}
+  if(!achievements.under30&&wonTime<30){achievements.under30=true;newAchievements.push({name:'Lightning',desc:'Win in under 30 seconds'})}
+  if(stats.bestTimes['3x3']>achievements.best3x3){achievements.best3x3=stats.bestTimes['3x3'];newAchievements.push({name:'3x3 Record',desc:'New best time for 3x3'})}
+  if(stats.bestTimes['4x4']>achievements.best4x4){achievements.best4x4=stats.bestTimes['4x4'];newAchievements.push({name:'4x4 Record',desc:'New best time for 4x4'})}
+  if(stats.bestTimes['5x5']>achievements.best5x5){achievements.best5x5=stats.bestTimes['5x5'];newAchievements.push({name:'5x5 Record',desc:'New best time for 5x5'})}
+  if(achievements.firstWin&&stats.gamesPlayed>=5&&!achievements.streak5){achievements.streak5=true;newAchievements.push({name:'Dedicated',desc:'Play 5 games'})}
+  if(achievements.firstWin&&stats.gamesPlayed>=10&&!achievements.streak10){achievements.streak10=true;newAchievements.push({name:'Addicted',desc:'Play 10 games'})}
+  if(newAchievements.length>0){
+    newAchievements.forEach(a=>showAchievementToast(a.name));
+    setTimeout(()=>openAchievements(),2500);
+  }
+}
+function showAchievementToast(name){
+  const toast=document.createElement('div');toast.className='achievement-toast';
+  toast.textContent='🏅 Achievement: '+name;document.body.appendChild(toast);
+  setTimeout(()=>toast.remove(),3000);
+}
+function openStats(){
+  let html='<div class="stats-grid">';
+  html+=`<div class="stat-card"><div class="value">${stats.gamesPlayed}</div><div class="label">Games Played</div></div>`;
+  html+=`<div class="stat-card"><div class="value">${stats.wins}</div><div class="label">Games Won</div></div>`;
+  html+=`<div class="stat-card"><div class="value">${stats.bestTimes['3x3']?formatTime(stats.bestTimes['3x3']):'--:--'}</div><div class="label">Best 3×3</div></div>`;
+  html+=`<div class="stat-card"><div class="value">${stats.bestTimes['4x4']?formatTime(stats.bestTimes['4x4']):'--:--'}</div><div class="label">Best 4×4</div></div>`;
+  html+=`<div class="stat-card"><div class="value">${stats.bestTimes['5x5']?formatTime(stats.bestTimes['5x5']):'--:--'}</div><div class="label">Best 5×5</div></div>`;
+  html+=`<div class="stat-card"><div class="value">${stats.wins}/${stats.gamesPlayed}</div><div class="label">Win Rate</div></div>`;
+  html+='</div>';
+  html+='<h3 style="margin:10px 0 5px;color:#667eea">🏆 Leaderboard</h3><div class="leaderboard-list">';
+  for(const size of[3,4,5]){const key=size+'x'+size;const t=stats.bestTimes[key];
+    html+=`<div class="leaderboard-item"><span>${size}×${size}</span><span>${t?formatTime(t):'No record'}</span></div>`}
+  html+='</div>';
+  document.getElementById('statsGrid').innerHTML=html;
+  document.getElementById('leaderboardList').innerHTML=html.split('🏆')[1]||'';
+  statsModal.classList.add('show');
+}
+function openAchievements(){
+  let html='';
+  const achs=[
+    {key:'firstWin',icon:'🎮',name:'First Game',desc:'Complete your first puzzle'},
+    {key:'under60',icon:'⚡',name:'Speed Demon',desc:'Win in under 60 seconds'},
+    {key:'under30',icon:'🌩️',name:'Lightning',desc:'Win in under 30 seconds'},
+    {key:'best3x3',icon:'🧩',name:'3×3 Master',desc:'New best time for 3×3'},
+    {key:'best4x4',icon:'🎯',name:'4×4 Pro',desc:'New best time for 4×4'},
+    {key:'best5x5',icon:'🏆',name:'5×5 Champion',desc:'New best time for 5×5'},
+    {key:'streak5',icon:'🔥',name:'Dedicated',desc:'Play 5 games'},
+    {key:'streak10',icon:'💎',name:'Addicted',desc:'Play 10 games'},
+  ];
+  achs.forEach(a=>{
+    const unlocked=achievements[a.key];
+    html+=`<div class="achievement-item ${unlocked?'unlocked':''}">
+      <span class="ach-icon">${a.icon}</span>
+      <div><div class="ach-name">${a.name}</div><div class="ach-desc">${a.desc}</div></div>
+      <span>${unlocked?'✅':'🔒'}</span></div>`;
+  });
+  document.getElementById('achievementsList').innerHTML=html;
+  achievementsModal.classList.add('show');
+}
+
+// ═══════════════════════════════════════════════════════════
+// WIN HANDLING
+// ═══════════════════════════════════════════════════════════
+function handleWin(){
+  stopTimer();hasWon=true;messageEl.classList.add('win');
+  playWin();startConfetti();
+  stats.wins++;gamesPlayed++;
+  const elapsed=parseInt(timerEl.textContent.replace(':',''));
+  if(elapsed>0){
+    const key=gridSize+'x'+gridSize;
+    if(!stats.bestTimes[key]||elapsed<stats.bestTimes[key]){stats.bestTimes[key]=elapsed}
+  }
+  if(!achievements.noHints)achievements.noHints=true; // placeholder
+  saveStats();checkAchievements();
+  // Haptic
+  if(navigator.vibrate)navigator.vibrate([50,30,50,30,100]);
+}
+
+// ═══════════════════════════════════════════════════════════
+// ANIMATIONS
+// ═══════════════════════════════════════════════════════════
+function animateTileFlip(index){
+  const tile=gridEl.children[index];
+  if(tile){tile.classList.add('flip-anim');setTimeout(()=>tile.classList.remove('flip-anim'),400)}
+}
+
+// ═══════════════════════════════════════════════════════════
+// FULLSCREEN
+// ═══════════════════════════════════════════════════════════
+function toggleFullscreen(){
+  const ga=document.getElementById('game-area');
+  if(!document.fullscreenElement){document.documentElement.requestFullscreen().catch(()=>{})}
+  else if(document.exitFullscreen)document.exitFullscreen();
+}
+
+// ═══════════════════════════════════════════════════════════
+// EVENT LISTENERS
+// ═══════════════════════════════════════════════════════════
+newGameBtn.addEventListener('click',()=>{stopTimer();stopCountdown();startNewGame()});
+undoBtn.addEventListener('click',undoMove);
+shuffleBtn.addEventListener('click',shuffleBoard);
+hintBtn.addEventListener('click',showHint);
+pauseBtn.addEventListener('click',togglePause);
+statsBtn.addEventListener('click',openStats);
+statsClose.addEventListener('click',()=>statsModal.classList.remove('show'));
+achClose.addEventListener('click',()=>achievementsModal.classList.remove('show'));
+document.getElementById('fullscreenBtn').addEventListener('click',toggleFullscreen);
+difficultySelect.addEventListener('change',()=>{stopTimer();stopCountdown();startNewGame()});
+document.addEventListener('keydown',e=>{
+  if(e.key==='z'&&e.ctrlKey)undoMove();
+  if(e.key==='r')startNewGame();
+  if(e.key==='h')showHint();
+  if(e.key==='p')togglePause();
+  if(e.key==='f')toggleFullscreen();
+});
+// Close modals on outside click
+statsModal.addEventListener('click',e=>{if(e.target===statsModal)statsModal.classList.remove('show')});
+achievementsModal.addEventListener('click',e=>{if(e.target===achievementsModal)achievementsModal.classList.remove('show')});
+
+// Apply saved stats
+if(stats.bestTimes['3x3'])bestEl.textContent=formatTime(stats.bestTimes['3x3']);
+winsEl.textContent=stats.wins;
+
+// ═══════════════════════════════════════════════════════════
+// START
+// ═══════════════════════════════════════════════════════════
+applyTheme();init();
+</script>
+</body>
+</html>
